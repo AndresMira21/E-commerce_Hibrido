@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>E-commerce Híbrido · Dashboard</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, system-ui, sans-serif; color: #172033; background: #f4f6fa; }
+    body { margin: 0; }
+    header { background: #18243b; color: white; padding: 1.5rem max(1.25rem, calc((100% - 1100px) / 2)); }
+    header h1 { margin: 0 0 .4rem; font-size: 1.5rem; }
+    header p { margin: 0; color: #c7d2e5; }
+    main { max-width: 1100px; margin: 2rem auto; padding: 0 1.25rem; }
+    .bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    #connection { color: #64748b; font-weight: 650; }
+    #connection.connected { color: #16834b; } #connection.disconnected { color: #b54736; }
+    .table-wrap { overflow-x: auto; background: white; border: 1px solid #e3e8f0; border-radius: 12px; box-shadow: 0 8px 25px #192b4510; }
+    table { width: 100%; border-collapse: collapse; min-width: 700px; }
+    th, td { padding: .95rem 1rem; border-bottom: 1px solid #edf0f5; text-align: left; }
+    th { color: #65728a; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
+    tbody tr:last-child td { border-bottom: 0; } td:first-child { font-family: ui-monospace, monospace; font-size: .84rem; }
+    .badge { display: inline-flex; border-radius: 99px; padding: .3rem .65rem; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+    .pending { background: #eef1f6; color: #64748b; } .success { background: #e1f5e9; color: #147342; }
+    .failed { background: #fde8e7; color: #b42318; } .neutral { background: #e8efff; color: #365bb5; }
+    #empty { color: #748096; text-align: center; padding: 2rem; }
+    @media (max-width: 650px) { header { padding: 1.25rem; } main { margin-top: 1rem; } }
+  </style>
+</head>
+<body>
+  <header><h1>E-commerce Híbrido</h1><p>Estado de procesamiento de pedidos en tiempo real</p></header>
+  <main>
+    <div class="bar"><h2>Pedidos</h2><span id="connection" class="disconnected">Conectando…</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Pedido</th><th>Pago</th><th>Inventario</th><th>Correo</th></tr></thead>
+        <tbody id="orders"><tr id="empty-row"><td id="empty" colspan="4">Aún no hay pedidos.</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+  <script>
+    const rows = document.getElementById('orders');
+    const connection = document.getElementById('connection');
+    const statuses = new Map();
+    function badge(value) {
+      const span = document.createElement('span');
+      span.className = 'badge ' + (value === 'PENDING' ? 'pending' : value.endsWith('FAILED') || value === 'STOCK_OUT_OF_STOCK' ? 'failed' : value === 'EMAIL_SENT' || value === 'STOCK_RESERVED' || value === 'PAYMENT_SUCCESS' ? 'success' : 'neutral');
+      span.textContent = value;
+      return span;
+    }
+    function render(order) {
+      statuses.set(order.order_id, order);
+      document.getElementById('empty-row')?.remove();
+      let row = document.getElementById('order-' + order.order_id);
+      if (!row) { row = document.createElement('tr'); row.id = 'order-' + order.order_id; rows.prepend(row); }
+      row.replaceChildren();
+      const id = document.createElement('td'); id.textContent = order.order_id;
+      row.append(id);
+      for (const key of ['payment', 'stock', 'email']) { const cell = document.createElement('td'); cell.append(badge(order[key] || 'PENDING')); row.append(cell); }
+    }
+    const client = new StompJs.Client({
+      webSocketFactory: () => new SockJS('/ws'), reconnectDelay: 3000,
+      onConnect: () => {
+        connection.textContent = 'WebSocket conectado'; connection.className = 'connected';
+        client.subscribe('/topic/orders', message => render(JSON.parse(message.body)));
+      },
+      onWebSocketClose: () => { connection.textContent = 'WebSocket desconectado · reconectando'; connection.className = 'disconnected'; },
+      onStompError: () => { connection.textContent = 'Error de conexión'; connection.className = 'disconnected'; }
+    });
+    fetch('/orders/status')
+      .then(response => response.json())
+      .then(items => items.forEach(render))
+      .catch(() => {})
+      .finally(() => client.activate());
+  </script>
+</body>
+</html>
