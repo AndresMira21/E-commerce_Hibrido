@@ -1,5 +1,23 @@
 # Usar junto con compose.infra.yml y compose.services.yml, en ese orden.
 services:
+  order-api:
+    image: ecommerce-order-api:local
+    build: ./order-api
+    ports:
+      - "127.0.0.1:8084:8084"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_started
+    networks:
+      - ecommerce
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
   order-processor:
     image: ecommerce-order-processor:local
     build: ./order-processor
