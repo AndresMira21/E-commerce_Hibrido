@@ -1,0 +1,88 @@
+# Usar junto con compose.infra.yml y compose.services.yml, en ese orden.
+services:
+  order-processor:
+    image: ecommerce-order-processor:local
+    build: ./order-processor
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USERNAME: "${RABBITMQ_USERNAME:-guest}"
+      RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD:-guest}"
+    depends_on:
+      kafka:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    networks:
+      - ecommerce
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
+  billing-worker:
+    image: ecommerce-billing-worker:local
+    build: ./billing-worker
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USERNAME: "${RABBITMQ_USERNAME:-guest}"
+      RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD:-guest}"
+    depends_on:
+      kafka:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      order-processor:
+        condition: service_started
+    networks:
+      - ecommerce
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
+  inventory-worker:
+    image: ecommerce-inventory-worker:local
+    build: ./inventory-worker
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USERNAME: "${RABBITMQ_USERNAME:-guest}"
+      RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD:-guest}"
+      POSTGRES_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ecommerce_inventory}"
+      POSTGRES_USERNAME: "${POSTGRES_USERNAME:-ecommerce}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Configura POSTGRES_PASSWORD localmente antes de usar Compose}"
+    depends_on:
+      kafka:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      order-processor:
+        condition: service_started
+    networks:
+      - ecommerce
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+
+  notification-worker:
+    networks:
+      - ecommerce
+
+  analytics-service:
+    networks:
+      - ecommerce
+
+  dashboard-aggregator:
+    networks:
+      - ecommerce

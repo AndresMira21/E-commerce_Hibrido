@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Variables de entorno locales (no guardar credenciales en Git).
+.env
