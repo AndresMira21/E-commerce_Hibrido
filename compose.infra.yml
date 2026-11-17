@@ -44,6 +44,27 @@ services:
     cpus: 1.0
     mem_limit: 768m
 
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-ecommerce_inventory}"
+      POSTGRES_USER: "${POSTGRES_USERNAME:-ecommerce}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Configura POSTGRES_PASSWORD localmente antes de usar Compose}"
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce
+    cpus: 0.5
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 networks:
   ecommerce:
     name: ecommerce-hibrido-network
@@ -52,3 +73,4 @@ networks:
 volumes:
   kafka_data:
   rabbitmq_data:
+  postgres_data:
