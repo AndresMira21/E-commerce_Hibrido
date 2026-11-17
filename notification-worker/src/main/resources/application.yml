@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: notification-worker
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        default-requeue-rejected: false
+        acknowledge-mode: auto
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+server:
+  port: ${SERVER_PORT:8081}
+app:
+  rabbitmq:
+    exchange: order_tasks
+    queue: notification_queue
+  kafka:
+    notification-topic: notification_events
