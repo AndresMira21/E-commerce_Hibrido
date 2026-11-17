@@ -1,0 +1,13 @@
+# Solo enviar el POM y las fuentes necesarias al builder.
+**
+!pom.xml
+!src/
+!src/**
+**/target/
+**/.env
+**/.env.*
+**/*.log
+**/*.dump
+**/*.sql.gz
+**/*.pem
+**/*.key
