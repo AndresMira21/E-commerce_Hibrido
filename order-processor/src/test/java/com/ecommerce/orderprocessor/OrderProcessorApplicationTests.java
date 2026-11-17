@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -13,6 +15,9 @@ import static org.assertj.core.api.Assertions.assertThat;
                 + "org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration"
 })
 class OrderProcessorApplicationTests {
+
+    @MockitoBean
+    private RabbitTemplate rabbitTemplate;
 
     @Autowired
     private ApplicationContext context;
