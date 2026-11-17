@@ -7,7 +7,12 @@ services:
       - "127.0.0.1:8084:8084"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      POSTGRES_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ecommerce_inventory}"
+      POSTGRES_USERNAME: "${POSTGRES_USERNAME:-ecommerce}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Configura POSTGRES_PASSWORD localmente antes de usar Compose}"
     depends_on:
+      postgres:
+        condition: service_healthy
       kafka:
         condition: service_started
     networks:

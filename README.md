@@ -1,5 +1,70 @@
 # E-commerce Hibrido: integracion local
 
+## Cumplimiento de rubrica: orden persistida antes de Kafka
+
+Flujo: POST /order (alias compatible /api/orders) -> Jakarta Validation -> Builder
+de Orden con IdentificadorOrden, DetalleItem y Dinero -> commit PostgreSQL ->
+Kafka new_orders -> order-processor -> RabbitMQ -> workers -> Dashboard.
+El JSON de new_orders y la respuesta 202 ACCEPTED se conservan. El 202 requiere
+confirmacion de Kafka y registro del resultado en PostgreSQL. Solicitudes invalidas
+devuelven 400; fallos de persistencia o publicacion devuelven 503 sin detalles internos.
+
+Las ordenes se almacenan en orders.ordenes y sus transiciones en orders.orden_cambios.
+Las migraciones de order-api usan orders.flyway_schema_history, independiente de
+public.flyway_schema_history utilizado por inventory-worker. Flyway crea el esquema
+orders sin borrar ni reinicializar public; no hay baseline automatico, clean ni datos
+de prueba. Hibernate sigue con ddl-auto=none. La cuenta debe poder crear ese esquema.
+PostgreSQL y Flyway reales deben validarse antes de afirmar compatibilidad efectiva.
+
+Orden es una entidad rica con Builder, estado inicial PENDIENTE_PUBLICACION,
+metodos confirmarPublicacion y registrarPublicacionIncierta, @Version y sin setters
+publicos. Los tres Value Objects son records con validaciones Fail-Fast.
+Dinero conserva el monto recibido sin cambiar el JSON ni aplicar descuentos aqui.
+OrdenRepository es Spring Data JPA; OrderService depende de OrderEventPublisher.
+OrdenPersistence es un bean separado: sus transacciones REQUIRES_NEW confirman el
+guardado antes del broker y luego auditan el resultado en otra transaccion.
+
+No existe transaccion distribuida PostgreSQL/Kafka, outbox ni reenvio automatico.
+Si Kafka falla, la orden queda PUBLICACION_INCIERTA: no se puede asegurar que Kafka
+no la recibiera. Si cae el proceso, el executor o la base al registrar el resultado,
+puede quedar PENDIENTE_PUBLICACION aunque Kafka haya recibido el evento. Esas ordenes
+requieren conciliacion por UUID. Un POST nuevo genera otra orden: no repetirlo a
+ciegas tras un 503 o timeout. La auditoria es transaccional, no un registro inmutable
+contra administradores de base de datos. Cliente y correo son datos personales;
+se deben restringir accesos y definir retencion antes de produccion.
+
+### Verificacion pendiente en Git Bash con infraestructura existente
+
+No usar un nombre de proyecto Compose diferente ni borrar volumenes. Desde la raiz:
+
+```bash
+dc() { docker compose -f compose.infra.yml -f compose.services.yml -f compose.integration.yml "$@"; }
+dc config --quiet
+docker build -t ecommerce-order-api:local ./order-api
+dc up -d postgres kafka rabbitmq
+dc ps
+# Continuar cuando PostgreSQL este healthy y los brokers esten disponibles.
+dc up -d order-processor billing-worker inventory-worker notification-worker analytics-service dashboard-aggregator
+dc up -d --no-deps order-api
+dc logs --tail=80 order-api
+# Debe mostrar Flyway en esquema orders, sin errores de historial del esquema public.
+RESPONSE=$(curl -sS --max-time 25 -w '\n%{http_code}' -H 'Content-Type: application/json' \
+  -d '{"cliente":"Alejandra","correo":"alejandra@example.com","item":"Libro","cantidad":1,"monto":15000}' \
+  http://localhost:8084/order)
+HTTP_CODE=${RESPONSE##*$'\n'}
+BODY=${RESPONSE%$'\n'*}
+printf 'HTTP %s\n%s\n' "$HTTP_CODE" "$BODY"
+# Detenerse si no es 202. No reenviar automaticamente.
+ORDER_ID=$(printf '%s' "$BODY" | python -c 'import json,sys,uuid; d=json.load(sys.stdin); assert d["status"]=="ACCEPTED"; print(uuid.UUID(d["order_id"]))')
+dc exec -T postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"SELECT order_id,producto,cantidad,monto,estado,creada_en,actualizada_en FROM orders.ordenes WHERE order_id='$ORDER_ID'::uuid; SELECT estado,fecha,motivo FROM orders.orden_cambios WHERE order_id='$ORDER_ID'::uuid ORDER BY secuencia; SELECT installed_rank,version,success FROM orders.flyway_schema_history; SELECT installed_rank,version,success FROM public.flyway_schema_history;\""
+curl -fsS http://localhost:8083/orders/status | python -c 'import json,sys; print(json.dumps([r for r in json.load(sys.stdin) if r["order_id"]==sys.argv[1]],indent=2))' "$ORDER_ID"
+```
+
+Para esa orden debe haber estado PUBLICADA, dos cambios auditados y el mismo UUID
+en Dashboard una vez procesados los eventos. Libro debe tener stock previamente;
+no reinicializar inventario para realizar esta prueba. Los comandos anteriores son
+instrucciones, no evidencia de que la integracion se haya ejecutado en este paso.
+
 Siete microservicios comparten la red `ecommerce` con Kafka, RabbitMQ y PostgreSQL.
 Los tres archivos Compose se combinan en este orden: infraestructura, servicios
 existentes e integracion. No ejecutar `down -v`, borrar volumenes ni purgar colas.
