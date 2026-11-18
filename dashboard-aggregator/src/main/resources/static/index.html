@@ -45,7 +45,7 @@
     const statuses = new Map();
     function badge(value) {
       const span = document.createElement('span');
-      span.className = 'badge ' + (value === 'PENDING' ? 'pending' : value.endsWith('FAILED') || value === 'STOCK_OUT_OF_STOCK' ? 'failed' : value === 'EMAIL_SENT' || value === 'STOCK_RESERVED' || value === 'PAYMENT_SUCCESS' ? 'success' : 'neutral');
+      span.className = 'badge ' + (value === 'PENDING' ? 'pending' : value.endsWith('FAILED') || value === 'OUT_OF_STOCK' || value === 'STOCK_OUT_OF_STOCK' ? 'failed' : value === 'EMAIL_SENT' || value === 'STOCK_RESERVED' || value === 'PAYMENT_SUCCESS' ? 'success' : 'neutral');
       span.textContent = value;
       return span;
     }
