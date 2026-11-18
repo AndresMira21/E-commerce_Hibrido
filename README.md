@@ -21,7 +21,11 @@ recibiera el mensaje: no reenviar automaticamente un POST con resultado incierto
 order-processor escucha `new_orders` y distribuye `PROCESS_ORDER` mediante el
 exchange Fanout `order_tasks` a billing_queue, inventory_queue y notification_queue.
 Los workers publican billing_events, inventory_events y notification_events.
-Dashboard consume esos estados; Analytics consume new_orders y mantiene agregados.
+Dashboard consume esos estados; Analytics consume `new_orders` y mantiene agregados
+en memoria de pedidos recibidos: `total_orders`, `total_amount` y `average_amount`
+representan órdenes aceptadas desde el topic, no ventas confirmadas ni necesariamente
+pagadas. El servicio evita volver a contar el mismo `order_id` durante una ejecución;
+sus métricas se reinician al reiniciar Analytics.
 202 confirma la entrada a Kafka, no el procesamiento completo de los workers.
 
 ## Configuracion local
