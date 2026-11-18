@@ -17,10 +17,11 @@ class OrderAnalyticsTest {
         var analytics = new OrderAnalytics();
         var first = event(UUID.randomUUID(), "30000");
         var second = event(UUID.randomUUID(), "10000");
+        var repeatedIdWithDifferentAmount = event(first.order_id(), "99999");
 
         // Act
         var firstInserted = analytics.record(first);
-        var duplicateInserted = analytics.record(first);
+        var duplicateInserted = analytics.record(repeatedIdWithDifferentAmount);
         analytics.record(second);
         var result = analytics.snapshot();
 

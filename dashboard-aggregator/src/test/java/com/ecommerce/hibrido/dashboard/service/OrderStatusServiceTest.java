@@ -1,6 +1,8 @@
 package com.ecommerce.hibrido.dashboard.service;
 
+import com.ecommerce.hibrido.dashboard.model.OrderStatus;
 import com.ecommerce.hibrido.dashboard.model.StatusEvent;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -9,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.UUID;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
@@ -36,7 +39,10 @@ class OrderStatusServiceTest {
         assertEquals("PAYMENT_SUCCESS", payment.payment());
         assertEquals("STOCK_RESERVED", payment.stock());
         assertEquals("EMAIL_SENT", payment.email());
-        verify(messagingTemplate, org.mockito.Mockito.times(3)).convertAndSend(eq("/topic/orders"), org.mockito.ArgumentMatchers.any(Object.class));
+        var published = ArgumentCaptor.forClass(Object.class);
+        verify(messagingTemplate, org.mockito.Mockito.times(3))
+                .convertAndSend(eq("/topic/orders"), published.capture());
+        assertEquals(List.of(stock, email, payment), published.getAllValues().stream().map(OrderStatus.class::cast).toList());
     }
 
     @Test
