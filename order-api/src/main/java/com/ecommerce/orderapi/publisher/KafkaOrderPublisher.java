@@ -9,7 +9,7 @@ import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KafkaOrderPublisher {
+public class KafkaOrderPublisher implements OrderEventPublisher {
 
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, String> kafkaTemplate;

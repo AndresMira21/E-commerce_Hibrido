@@ -3,6 +3,8 @@ package com.ecommerce.orderapi.controller;
 import com.ecommerce.orderapi.event.NewOrderEvent;
 import com.ecommerce.orderapi.publisher.KafkaOrderPublisher;
 import com.ecommerce.orderapi.service.OrderService;
+import com.ecommerce.orderapi.service.OrdenPersistence;
+import com.ecommerce.orderapi.repository.OrdenRepository;
 import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -33,19 +35,29 @@ class OrderControllerTests {
             {"cliente":"Ana","correo":"ana@example.com","item":"Libro","cantidad":2,"monto":120.50}
             """;
     @Mock private KafkaOrderPublisher publisher;
+    @Mock private OrdenRepository repository;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        OrderService service = new OrderService(publisher, new TaskExecutorAdapter(new SyncTaskExecutor()));
+        lenient().when(repository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(repository.findById(any())).thenAnswer(invocation -> java.util.Optional.of(
+                com.ecommerce.orderapi.domain.Orden.builder()
+                        .identificador(new com.ecommerce.orderapi.domain.IdentificadorOrden(invocation.getArgument(0)))
+                        .cliente("Ana").correo("ana@example.com")
+                        .detalle(new com.ecommerce.orderapi.domain.DetalleItem("Libro",2))
+                        .dinero(new com.ecommerce.orderapi.domain.Dinero(new BigDecimal("120.50"))).build()));
+        OrderService service = new OrderService(publisher, new TaskExecutorAdapter(new SyncTaskExecutor()),
+                new OrdenPersistence(repository));
         mvc = MockMvcBuilders.standaloneSetup(new OrderController(service))
                 .setControllerAdvice(new OrderExceptionHandler()).build();
     }
 
-    @Test
-    void validOrderGeneratesUuidAndReturns202AfterConfirmation() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/orders", "/order"})
+    void validOrderGeneratesUuidAndReturns202AfterConfirmation(String path) throws Exception {
         when(publisher.publish(any())).thenReturn(CompletableFuture.completedFuture(null));
-        MvcResult pending = mvc.perform(post("/api/orders").contentType("application/json").content(JSON))
+        MvcResult pending = mvc.perform(post(path).contentType("application/json").content(JSON))
                 .andExpect(request().asyncStarted()).andReturn();
         ArgumentCaptor<NewOrderEvent> captor = ArgumentCaptor.forClass(NewOrderEvent.class);
         verify(publisher).publish(captor.capture());
@@ -75,6 +87,23 @@ class OrderControllerTests {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("error").value("Solicitud invalida"))
                 .andExpect(jsonPath("fields").isMap());
         verifyNoInteractions(publisher);
+    }
+
+    @Test
+    void databaseFailureReturns503AndDoesNotPublish() throws Exception {
+        when(repository.saveAndFlush(any())).thenThrow(new org.springframework.dao.DataAccessResourceFailureException("DB privada"));
+        MvcResult pending = mvc.perform(post("/order").contentType("application/json").content(JSON))
+                .andExpect(request().asyncStarted()).andReturn();
+        mvc.perform(asyncDispatch(pending)).andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("error").exists());
+        verifyNoInteractions(publisher);
+    }
+
+    @Test
+    void invalidAliasDoesNotPersistOrPublish() throws Exception {
+        mvc.perform(post("/order").contentType("application/json").content("{}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(repository, publisher);
     }
 
     @Test

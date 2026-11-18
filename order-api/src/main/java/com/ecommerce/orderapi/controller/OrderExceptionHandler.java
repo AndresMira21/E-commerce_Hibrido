@@ -10,6 +10,10 @@ import org.springframework.web.bind.annotation.*;
 
 @RestControllerAdvice
 public class OrderExceptionHandler {
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<?> invalidDomain() {
+        return ResponseEntity.badRequest().body(Map.of("error", "Solicitud invalida"));
+    }
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<?> validation(MethodArgumentNotValidException exception) {
         Map<String, String> fields = new TreeMap<>();
