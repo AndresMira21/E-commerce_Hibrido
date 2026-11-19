@@ -44,9 +44,15 @@ class CreateOrderRequestTests {
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {" ", "sin-correo", "a@", "a b@example.com"})
+    @ValueSource(strings = {" ", "sin-correo", "a@", "a b@example.com", "aleja@localhost", "correo-invalido"})
     void rejectsInvalidEmail(String correo) {
         assertInvalid(new CreateOrderRequest("Ana", correo, "Libro", 1, BigDecimal.TEN), "correo");
+    }
+
+    @Test
+    void acceptsAnalyticsCompatibleEmail() {
+        var request = new CreateOrderRequest("Alejandra", "aleja@example.com", "Libro", 1, BigDecimal.TEN);
+        assertThat(validator.validate(request)).isEmpty();
     }
 
     @ParameterizedTest
