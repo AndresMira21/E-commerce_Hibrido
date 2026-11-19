@@ -1,0 +1,8 @@
+# Solo ejemplo. No copiar sin comprobar precedencia, sshd -T y acceso alternativo.
+# Ubuntu/cloud-init puede definir opciones en otros snippets; el primer valor aplica.
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+X11Forwarding no
+# No establecer AllowUsers, MFA ni PAM automaticamente; no borrar claves de ubuntu.
