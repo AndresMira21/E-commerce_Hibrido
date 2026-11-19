@@ -1,6 +1,0 @@
-# Copiar a /etc/nginx/snippets/ecommerce-access.conf.
-# DENEGADO por defecto: conservar loopback para diagnostico y anadir la IP/CIDR
-# administrativa REAL en otra linea allow ANTES de deny all, solo si se publica.
-# Aplicar tambien Security Group; revisar IPv6 si se habilita.
-allow 127.0.0.1;
-deny all;
