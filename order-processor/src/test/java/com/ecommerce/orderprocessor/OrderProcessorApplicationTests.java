@@ -15,6 +15,8 @@ import static org.assertj.core.api.Assertions.assertThat;
                 + "org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration"
 })
 class OrderProcessorApplicationTests {
+    @MockitoBean
+    private org.springframework.kafka.config.KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
 
     @MockitoBean
     private RabbitTemplate rabbitTemplate;

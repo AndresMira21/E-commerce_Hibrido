@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentMap;
 
 @Service
 public class OrderStatusService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderStatusService.class);
     private final ConcurrentMap<UUID, OrderStatus> statuses = new ConcurrentHashMap<>();
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -40,6 +41,8 @@ public class OrderStatusService {
         var updated = statuses.compute(event.order_id(), (id, current) ->
                 updater.apply(current == null ? OrderStatus.pending(id) : current, event.status()));
         messagingTemplate.convertAndSend("/topic/orders", updated);
+        log.info("order_id={} dashboard payment={} stock={} email={} destino=/topic/orders",
+                updated.order_id(), updated.payment(), updated.stock(), updated.email());
         return updated;
     }
 

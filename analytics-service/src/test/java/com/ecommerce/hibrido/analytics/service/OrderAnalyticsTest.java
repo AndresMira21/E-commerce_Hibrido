@@ -11,6 +11,20 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OrderAnalyticsTest {
+    @Test void conservaPrecisionDecimalYRedondeaSoloElPromedio() {
+        // Arrange
+        var analytics=new OrderAnalytics();
+        var id=UUID.randomUUID();
+        // Act
+        analytics.record(event(id,"0.10"));
+        analytics.record(event(UUID.randomUUID(),"0.21"));
+        analytics.record(event(id,"99999"));
+        var snapshot=analytics.snapshot();
+        // Assert
+        assertEquals(2,snapshot.total_orders());
+        assertEquals(new BigDecimal("0.31"),snapshot.total_amount());
+        assertEquals(new BigDecimal("0.16"),snapshot.average_amount());
+    }
     @Test
     void acumulaTotalPromedioYDescartaDuplicados() {
         // Arrange

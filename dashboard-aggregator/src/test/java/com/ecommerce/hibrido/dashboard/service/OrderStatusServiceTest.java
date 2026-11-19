@@ -22,6 +22,33 @@ class OrderStatusServiceTest {
     @Mock SimpMessagingTemplate messagingTemplate;
     @InjectMocks OrderStatusService service;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"pse","pes","spe","sep","eps","esp"})
+    void conservaCamposEnLasSeisPermutacionesConEstadosFallidos(String sequence) {
+        // Arrange
+        UUID id=UUID.randomUUID();
+        OrderStatus result=OrderStatus.pending(id);
+        // Act
+        for(char field:sequence.toCharArray()) {
+            result=switch(field) {
+                case 'p' -> service.updatePayment(new StatusEvent(id,"PAYMENT_FAILED"));
+                case 's' -> service.updateStock(new StatusEvent(id,"OUT_OF_STOCK"));
+                default -> service.updateEmail(new StatusEvent(id,"EMAIL_SENT"));
+            };
+        }
+        // Assert
+        assertEquals(new OrderStatus(id,"PAYMENT_FAILED","OUT_OF_STOCK","EMAIL_SENT"),result);
+        verify(messagingTemplate,org.mockito.Mockito.times(3)).convertAndSend(eq("/topic/orders"),org.mockito.ArgumentMatchers.any(Object.class));
+    }
+
+    @Test void mantieneAisladasDosOrdenes() {
+        UUID first=UUID.randomUUID(), second=UUID.randomUUID();
+        service.updatePayment(new StatusEvent(first,"PAYMENT_SUCCESS"));
+        service.updateStock(new StatusEvent(second,"OUT_OF_STOCK"));
+        assertEquals(2,service.allStatuses().size());
+        assertEquals("PENDING",service.allStatuses().stream().filter(s -> s.order_id().equals(second)).findFirst().orElseThrow().payment());
+    }
+
     @Test
     void agregaEventosEnCualquierOrdenYPublicaCadaActualizacion() {
         // Arrange

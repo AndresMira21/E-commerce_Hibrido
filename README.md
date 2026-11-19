@@ -1,5 +1,278 @@
 # E-commerce Hibrido: integracion local
 
+## Guia de exposicion y revision final
+
+Esta guia complementa las instrucciones existentes. Las pruebas automatizadas no
+demuestran por si solas entrega entre brokers, persistencia real ni recepcion WebSocket.
+En esta revision no se enviaron ordenes ni se consumieron mensajes manualmente.
+
+### 1. Objetivo y arquitectura
+
+Simulamos la recepcion y procesamiento asincrono de pedidos. La API acepta una
+solicitud, deja una orden auditable y emite un evento. Cada trabajador tiene una
+responsabilidad independiente y comunica su resultado, sin llamadas HTTP entre workers.
+
+### 2. Flujo completo
+
+```text
+POST /order (o /api/orders) -> validacion -> Orden + auditoria PostgreSQL (orders)
+  -> Kafka new_orders -> order-processor -> RabbitMQ Fanout order_tasks
+       |                                  | billing_queue -> billing_events
+       |                                  | inventory_queue -> inventory_events
+       |                                  | notification_queue -> notification_events
+       +-> analytics-service              +-> Dashboard -> /topic/orders (WebSocket)
+                                            inventory-worker -> PostgreSQL (public)
+```
+
+### 3. Responsabilidades de los siete microservicios
+
+| Servicio | Responsabilidad |
+|---|---|
+| order-api | Valida, construye Orden mediante Builder, persiste y confirma publicacion |
+| order-processor | Traduce new_orders al comando PROCESS_ORDER y confirma RabbitMQ |
+| billing-worker | Simula pago determinista y descuentos Strategy; publica resultado |
+| inventory-worker | Reserva stock transaccional e idempotentemente con @Version |
+| notification-worker | Simula aviso al cliente; publica EMAIL_SENT |
+| analytics-service | Deduplica new_orders por UUID y calcula agregados recibidos |
+| dashboard-aggregator | Combina estados por UUID y actualiza la web por WebSocket |
+
+### 4. Por que Kafka
+
+El log permite consumidores independientes: Order Processor y Analytics leen
+new_orders con grupos diferentes. Los topics de resultados alimentan el Dashboard.
+Un consumidor de inspeccion nunca debe usar los grupos de las aplicaciones.
+
+### 5. Por que RabbitMQ
+
+Distribuye tareas a workers mediante colas independientes. Los acknowledgements,
+reintentos del consumidor y dead lettering permiten controlar errores de tareas.
+
+### 6. Evento y comando
+
+Un evento describe un hecho: una orden recibida o un resultado PAYMENT_SUCCESS.
+Un comando pide una accion: PROCESS_ORDER. Se conservan todos los contratos JSON,
+topics, exchanges, nombres de colas y puertos existentes.
+
+### 7. Fanout y confirmaciones
+
+order_tasks entrega una copia a cada cola vinculada; la routing key de envio es
+vacia. Order Processor usa publisher confirms correlacionados y mandatory returns,
+y espera hasta 10 segundos la confirmacion antes de completar el listener Kafka.
+Un ACK del broker no significa que los workers terminaron. Un retorno NO_ROUTE
+detecta ausencia total de rutas, no que las tres colas esten presentes: verificar
+los tres bindings. Si falta solo uno, otro binding puede permitir ACK sin retorno.
+
+El consumidor Kafka usa ack-mode=record y auto-commit desactivado. Tiene hasta tres
+intentos totales separados por 500 ms; errores permanentes no se reintentan. Si
+persisten, detiene orderProcessor y lanza error sin dar el offset por recuperado.
+Revisar logs, corregir la causa y reiniciar manualmente el servicio. No salta un
+registro invalido silenciosamente ni crea un topic nuevo. Un registro invalido
+puede bloquear el avance hasta intervencion, una decision explicita para no perderlo.
+
+### 8. PostgreSQL y auditoria
+
+Inventario usa public y su historial Flyway original; Orden usa orders y un historial
+separado. Orden y cambios se confirman antes de enviar a Kafka. Estados de publicacion:
+PENDIENTE_PUBLICACION, PUBLICADA y PUBLICACION_INCIERTA. No se borra una orden por un
+error del broker. Las migraciones existentes no se alteraron en esta revision.
+
+### 9. Modelo de dominio rico
+
+Orden protege sus invariantes y expone transiciones semanticas, sin setters indiscriminados.
+Inventario reserva dentro de una transaccion. Su clave por order_id evita dos filas
+para la misma orden; @Version detecta competencia entre ordenes por un mismo producto.
+
+### 10. Records y Fail-Fast
+
+Dinero, IdentificadorOrden y DetalleItem son Value Objects inmutables. Los records de
+mensajes validan al construirse. JSON invalido y datos permanentes no deben llegar a
+la logica de negocio; los mensajes que ya existen pueden no cumplir las validaciones
+actuales y requieren diagnostico, no borrado automatico.
+
+### 11. Strategy, Builder y Repository
+
+Strategy separa SinDescuento y DescuentoPorMonto (10% desde 100000). El pago se aprueba
+si el total final no supera 1000000; es una simulacion sin proveedor ni cobro real.
+Builder construye Orden completa. Spring Data implementa los repositorios para
+Orden, InventoryItem y StockReservation. Los montos se calculan con BigDecimal.
+
+### 12. SOLID y DIP
+
+Recepcion, negocio y publicacion se mantienen separados y se inyectan por constructor.
+OrderTaskPublisher abstrae RabbitMQ, PaymentEventPublisher/InventoryEventPublisher
+abstraen Kafka y OrderEventPublisher separa el dominio de la API de su adaptador Kafka.
+No se introdujeron Saga, outbox ni plataformas nuevas para resolver esta revision.
+
+### 13. JUnit 5 y Mockito con AAA
+
+Arrange prepara entradas y mocks; Act ejecuta; Assert verifica resultados e interacciones.
+Las pruebas ejercitan validaciones, descuentos, transacciones con gestor simulado,
+confirmaciones, reintentos acotados, idempotencia y agregacion incremental. Se conservan
+las pruebas previas. Los Dockerfiles de los siete servicios ahora ejecutan mvn verify.
+Esto verifica Java 17 durante el build; las ejecuciones Maven locales usan el JDK disponible.
+
+### 14. Reintentos y DLQ
+
+Billing, Inventory y Notification: tres intentos totales, pausas de 200 y 400 ms para
+errores transitorios, sin reencolacion infinita. Formato/validacion permanente e
+interrupciones no se reintentan. El interceptor de recepcion rechaza tras agotar intentos;
+no debe confundirse con setRetryTemplate de una fabrica, que se refiere al envio de replies.
+
+| Cola origen | Exchange directo durable | DLQ durable | Routing key |
+|---|---|---|---|
+| billing_queue | billing_dlx | billing_dead_queue | billing.failed |
+| inventory_queue | inventory_dlx | inventory_dead_queue | inventory.failed |
+| notification_queue | notification_dlx | notification_dead_queue | notification.failed |
+
+No se agregan argumentos DLX a las colas origen existentes, evitando PRECONDITION_FAILED.
+La configuracion requiere politicas RabbitMQ, no solo beans Java. El script siguiente
+consulta primero y rehusa modificar politicas ajenas coincidentes. No fue aplicado
+en esta revision; sin politica/destino verificados, un rechazo puede perderse.
+
+Desde PowerShell en la raiz, con el usuario local autorizado (sin escribir claves en Git):
+
+```powershell
+$cred = Get-Credential
+./scripts/configure-dlq.ps1 -Credential $cred
+# Revisar la salida; solo despues aplicar y comprobar:
+./scripts/configure-dlq.ps1 -Credential $cred -Apply
+./scripts/configure-dlq.ps1 -Credential $cred
+```
+
+El script no borra, no consume, no purga ni configura retorno automatico desde DLQ.
+Antes de modificar politicas se revisan las tres colas para evitar cambios parciales
+por un conflicto conocido. Un fallo de red durante la aplicacion aun puede dejar
+una configuracion parcial: repetir inspeccion antes de arrancar consumers.
+
+### 15. Observabilidad
+
+Buscar order_id en logs de recepcion, pagos, reservas y publicaciones confirmadas.
+Los reintentos registran numero y tipo de error. Las recuperaciones registran cola y
+tipo sin imprimir el cuerpo. Analytics registra UUID y si fue insertado o duplicado;
+Dashboard registra el agregado y el destino /topic/orders. No activar logs de cuerpos
+ni registrar credenciales, correo o nombre del cliente para diagnosticar un pedido.
+
+### 16. Limites conocidos
+
+- No existe atomicidad distribuida PostgreSQL/Kafka ni Kafka/RabbitMQ. Puede haber
+  eventos duplicados al perder confirmaciones. Nunca se promete exactamente una vez.
+- Billing y Notification son simulaciones deterministas, sin efectos externos reales:
+  un reintento puede volver a publicar el mismo UUID. No tienen un libro de cobros
+  persistente ni deduplicacion durable; no son implementaciones de pagos/correo reales.
+- Inventario reutiliza la reserva confirmada tras un error Kafka sin descontar otra vez.
+- Analytics y Dashboard guardan datos en memoria: el reinicio puede perder la vista
+  reconstruida si los offsets ya avanzaron. No reiniciar grupos ni offsets automaticamente.
+- Analytics mide ordenes recibidas: total_amount NO representa ingresos cobrados.
+  average_amount es promedio de montos recibidos, aunque PAYMENT_FAILED llegue despues.
+- EMAIL_SENT significa simulacion exitosa y evento confirmado, no entrega SMTP real.
+- El Dashboard conserva campos entre eventos y admite su llegada en distinto orden;
+  sin version en el contrato, un evento atrasado contradictorio es last-arrival-wins.
+- DLQ clasicas, confirmaciones y datos durables no constituyen por si solos una
+  garantia absoluta de entrega frente a todos los fallos del cluster.
+- No se ejecutaron fallos reales ni E2E en esta revision si Docker no esta disponible.
+
+### 17. Docker Compose y preparacion segura
+
+Los tres Compose deben producir exactamente diez servicios (siete aplicaciones y
+tres centrales), con red ecommerce, limites y volumenes existentes. No usar otro
+project-name si se quieren reutilizar los volumenes originales. No modificar .env.
+
+```bash
+dc() { docker compose -f compose.infra.yml -f compose.services.yml -f compose.integration.yml "$@"; }
+docker info
+dc config --quiet
+dc config --services
+dc ps
+dc logs --tail=50 kafka rabbitmq postgres
+# Revisar el backlog SIN consumirlo ni purgarlo:
+dc exec -T rabbitmq rabbitmqctl list_queues -p / name messages_ready messages_unacknowledged policy
+dc exec -T rabbitmq rabbitmqctl list_policies -p /
+dc exec -T rabbitmq rabbitmqctl list_bindings -p / source_name destination_name routing_key
+```
+
+Antes de reconstruir/iniciar los workers, revisar backlog y aplicar/verificar las
+politicas con el script. Arrancar workers puede consumir mensajes pendientes: no
+presentarlo como una operacion de solo lectura. Destinos faltantes pueden prepararse
+con el script sin arrancar workers, siempre que las colas origen ya existan.
+Una vez autorizada la integracion manual:
+
+```bash
+dc build order-api order-processor billing-worker inventory-worker notification-worker analytics-service dashboard-aggregator
+dc up -d kafka rabbitmq postgres
+dc ps
+# Continuar solo con brokers disponibles y postgres healthy.
+dc up -d order-processor billing-worker inventory-worker notification-worker analytics-service dashboard-aggregator order-api
+```
+
+Kafka/RabbitMQ tienen dependencia service_started, no healthcheck: revisar disponibilidad
+antes del POST. No ejecutar down -v, prune, DROP, TRUNCATE ni purgas.
+
+### 18. Una unica prueba E2E manual controlada
+
+No se envia automaticamente. Antes comprobar Libro y Analytics, abrir Dashboard y
+la suscripcion WebSocket de la seccion 20. Verificar stock suficiente y una sola
+ventana de envio, sin otras ordenes simultaneas. Los comandos usan Python 3 para JSON.
+
+```bash
+dc exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT product_name,available_quantity,version FROM inventory_items WHERE product_name = '\''Libro'\'';"'
+curl -fsS http://localhost:8082/analytics
+# Solo una vez; no repetir ante timeout o 503 sin revisar auditoria.
+RESPONSE=$(curl -sS --max-time 25 -w '\n%{http_code}' -H 'Content-Type: application/json' \
+  -d '{"cliente":"Alejandra","correo":"alejandra@example.com","item":"Libro","cantidad":1,"monto":15000}' \
+  http://localhost:8084/order)
+HTTP_CODE=${RESPONSE##*$'\n'}
+BODY=${RESPONSE%$'\n'*}
+printf 'HTTP %s\n%s\n' "$HTTP_CODE" "$BODY"
+# Continuar solo con 202. Si no, detenerse y conservar la evidencia.
+ORDER_ID=$(printf '%s' "$BODY" | python -c 'import json,sys,uuid; d=json.load(sys.stdin); assert d["status"]=="ACCEPTED"; print(uuid.UUID(d["order_id"]))')
+dc exec -T postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"SELECT order_id,estado FROM orders.ordenes WHERE order_id='$ORDER_ID'::uuid; SELECT estado,fecha,motivo FROM orders.orden_cambios WHERE order_id='$ORDER_ID'::uuid ORDER BY secuencia; SELECT order_id,status,quantity FROM stock_reservations WHERE order_id='$ORDER_ID'::uuid; SELECT product_name,available_quantity,version FROM inventory_items WHERE product_name='Libro';\""
+dc logs --since=10m order-api order-processor billing-worker inventory-worker notification-worker analytics-service dashboard-aggregator | grep -F "$ORDER_ID"
+curl -fsS http://localhost:8082/analytics
+curl -fsS http://localhost:8083/orders/status | python -c 'import json,sys; print(json.dumps([r for r in json.load(sys.stdin) if r["order_id"]==sys.argv[1]],indent=2))' "$ORDER_ID"
+```
+
+Esperado: orden PUBLICADA, auditoria, una reserva, stock disminuye en uno y mismo
+UUID con PAYMENT_SUCCESS, STOCK_RESERVED y EMAIL_SENT. Analytics sube una orden y
+15000 si no hubo otras ordenes. Eso no demuestra cobro real. No reinicializar Libro.
+
+### 19. Comprobar mensajes sin consumir manualmente los existentes
+
+Usar logs correlacionados, metadatos de consumidores y Management UI. En RabbitMQ
+ver los conteos/bindings, sin pulsar Get messages ni Purge. No ejecutar console-consumer
+sobre mensajes retenidos durante esta auditoria. Para evidencia Kafka de la prueba
+manual, configurar antes del POST un consumidor de observacion con grupo unico y
+auto.offset.reset=latest; solo recibira eventos nuevos, nunca grupos de aplicacion.
+
+```bash
+dc exec -T kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server kafka:9092 --describe --group order-processor-group
+dc exec -T kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server kafka:9092 --describe --group analytics-service
+dc exec -T rabbitmq rabbitmqctl list_queues -p / name messages_ready messages_unacknowledged policy
+```
+
+Las instrucciones anteriores del README que usan --from-beginning se conservan como
+referencia historica; NO ejecutarlas en la revision sin permiso para leer historicos.
+
+### 20. Dashboard y WebSocket
+
+Abrir http://localhost:8083/. DevTools -> Network -> WS/SockJS permite comprobar
+CONNECTED, SUBSCRIBE /topic/orders y MESSAGE con el UUID de la unica orden manual.
+Para suscribirse sin crear ordenes, en la consola de esa pagina:
+
+```javascript
+const auditClient = new StompJs.Client({
+  webSocketFactory: () => new SockJS('/ws'),
+  onConnect: () => auditClient.subscribe('/topic/orders', m => console.log(JSON.parse(m.body)))
+});
+auditClient.activate();
+// Preparar antes del unico POST manual. Al terminar: auditClient.deactivate();
+```
+
+Sin eventos nuevos solo se verifica conexion/suscripcion, no entrega en vivo. Consultar
+/orders/status no crea ordenes. La web recupera snapshot al conectar y reconectar;
+las ordenes que recibieron un evento en vivo durante la carga no se reemplazan por
+un snapshot anterior. PENDING se muestra gris, PAYMENT_FAILED/OUT_OF_STOCK rojo.
+Las pruebas automatizadas de agregacion no sustituyen esta comprobacion visual real.
+
 ## Cumplimiento de rubrica: orden persistida antes de Kafka
 
 Flujo: POST /order (alias compatible /api/orders) -> Jakarta Validation -> Builder

@@ -63,16 +63,22 @@
       webSocketFactory: () => new SockJS('/ws'), reconnectDelay: 3000,
       onConnect: () => {
         connection.textContent = 'WebSocket conectado'; connection.className = 'connected';
-        client.subscribe('/topic/orders', message => render(JSON.parse(message.body)));
+        const liveOrders = new Set();
+        client.subscribe('/topic/orders', message => {
+          const order = JSON.parse(message.body);
+          liveOrders.add(order.order_id);
+          render(order);
+        });
+        // Recupera el snapshot tambien al reconectar, despues de suscribirse.
+        fetch('/orders/status')
+          .then(response => response.json())
+          .then(items => items.filter(order => !liveOrders.has(order.order_id)).forEach(render))
+          .catch(() => { connection.textContent = 'Conectado; no se pudo recuperar el historial'; });
       },
       onWebSocketClose: () => { connection.textContent = 'WebSocket desconectado · reconectando'; connection.className = 'disconnected'; },
       onStompError: () => { connection.textContent = 'Error de conexión'; connection.className = 'disconnected'; }
     });
-    fetch('/orders/status')
-      .then(response => response.json())
-      .then(items => items.forEach(render))
-      .catch(() => {})
-      .finally(() => client.activate());
+    client.activate();
   </script>
 </body>
 </html>

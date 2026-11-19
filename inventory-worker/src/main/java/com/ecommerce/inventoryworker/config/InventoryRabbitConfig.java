@@ -43,7 +43,9 @@ public class InventoryRabbitConfig {
                 while (cause != null) {
                     if (cause instanceof AmqpRejectAndDontRequeueException
                             || cause instanceof IllegalArgumentException
-                            || cause instanceof InterruptedException) {
+                            || cause instanceof InterruptedException
+                            || cause instanceof org.springframework.amqp.support.converter.MessageConversionException
+                            || cause instanceof org.springframework.messaging.converter.MessageConversionException) {
                         return false;
                     }
                     if (cause == cause.getCause()) { break; }
@@ -57,13 +59,24 @@ public class InventoryRabbitConfig {
         backOff.setMultiplier(2);
         backOff.setMaxInterval(400);
         template.setBackOffPolicy(backOff);
+        template.registerListener(new org.springframework.retry.RetryListener() {
+            @Override public <T, E extends Throwable> void onError(org.springframework.retry.RetryContext context,
+                    org.springframework.retry.RetryCallback<T, E> callback, Throwable failure) {
+                org.slf4j.LoggerFactory.getLogger(getClass()).warn("Intento RabbitMQ={} tipo={}",
+                        context.getRetryCount(), failure.getClass().getSimpleName());
+            }
+        });
         return template;
     }
 
     @Bean
     public RetryOperationsInterceptor inventoryRetryInterceptor(RetryTemplate inventoryRetryTemplate) {
         return RetryInterceptorBuilder.stateless().retryOperations(inventoryRetryTemplate)
-                .recoverer(new RejectAndDontRequeueRecoverer()).build();
+                .recoverer((message, failure) -> {
+                    org.slf4j.LoggerFactory.getLogger(getClass()).error("Mensaje rechazado sin reencolar: cola={} tipo={}; revisar DLQ",
+                            message.getMessageProperties().getConsumerQueue(), failure.getClass().getSimpleName());
+                    throw new org.springframework.amqp.rabbit.support.ListenerExecutionFailedException("Intentos agotados o mensaje invalido", new AmqpRejectAndDontRequeueException("Rechazo sin reencolar", failure), message);
+                }).build();
     }
 
     @Bean
