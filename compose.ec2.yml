@@ -1,0 +1,98 @@
+# Producción académica en una sola EC2, con Nginx instalado en el host.
+# Usar al final, tras compose.infra.yml, compose.services.yml y compose.integration.yml.
+# Docker Compose 2.24.4+ reconoce !override y reemplaza los puertos heredados.
+# El .env privado debe definir POSTGRES_PASSWORD, RABBITMQ_USERNAME (distinto de guest)
+# y RABBITMQ_PASSWORD. En volúmenes ya inicializados, usar las credenciales vigentes.
+x-ec2: &ec2
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: '10m'
+      max-file: '3'
+
+x-rabbit-client: &rabbit-client
+  RABBITMQ_USERNAME: "${RABBITMQ_USERNAME:?Define un usuario RabbitMQ propio en .env}"
+  RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD:?Define la contraseña RabbitMQ en .env}"
+
+x-healthy: &healthy
+  condition: service_healthy
+
+services:
+  kafka:
+    <<: *ec2
+    ports: !override []
+    healthcheck:
+      test: ['CMD', 'env', 'KAFKA_HEAP_OPTS=-Xms32m -Xmx96m', '/opt/kafka/bin/kafka-topics.sh', '--bootstrap-server', 'kafka:9092', '--list']
+      interval: 60s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+
+  rabbitmq:
+    <<: *ec2
+    # El script de políticas DLQ usa la API de administración desde el host.
+    ports: !override ['127.0.0.1:15672:15672']
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_USERNAME:?Define un usuario RabbitMQ propio en .env}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD:?Define la contraseña RabbitMQ en .env}"
+    healthcheck:
+      test: ['CMD-SHELL', 'rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_port_listener 5672']
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 45s
+
+  postgres:
+    <<: *ec2
+    ports: !override []
+
+  order-api:
+    <<: *ec2
+    # Hereda 127.0.0.1:8084 y la dependencia saludable de PostgreSQL.
+    depends_on:
+      kafka: *healthy
+
+  order-processor:
+    <<: *ec2
+    environment: *rabbit-client
+    depends_on:
+      kafka: *healthy
+      rabbitmq: *healthy
+
+  billing-worker:
+    <<: *ec2
+    environment: *rabbit-client
+    depends_on:
+      kafka: *healthy
+      rabbitmq: *healthy
+
+  inventory-worker:
+    <<: *ec2
+    environment: *rabbit-client
+    depends_on:
+      kafka: *healthy
+      rabbitmq: *healthy
+
+  notification-worker:
+    <<: *ec2
+    environment: *rabbit-client
+    ports: !override []
+    depends_on:
+      kafka: *healthy
+      rabbitmq: *healthy
+
+  analytics-service:
+    <<: *ec2
+    ports: !override ['127.0.0.1:8082:8082']
+    depends_on:
+      kafka: *healthy
+
+  dashboard-aggregator:
+    <<: *ec2
+    ports: !override ['127.0.0.1:8083:8083']
+    depends_on:
+      kafka: *healthy
+
+
+
