@@ -28,7 +28,7 @@ public class Orden {
         if (builder.cliente == null || builder.cliente.isBlank() || builder.cliente.length()>255)
             throw new IllegalArgumentException("Cliente obligatorio, maximo 255 caracteres");
         if (builder.correo == null || builder.correo.isBlank() || builder.correo.length()>255
-                || !builder.correo.matches("[^\\s@]+@[^\\s@]+"))
+                || !builder.correo.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
             throw new IllegalArgumentException("Correo invalido");
         id=builder.id.valor(); cliente=builder.cliente; correo=builder.correo;
         producto=builder.detalle.producto(); cantidad=builder.detalle.cantidad(); monto=builder.dinero.valor();

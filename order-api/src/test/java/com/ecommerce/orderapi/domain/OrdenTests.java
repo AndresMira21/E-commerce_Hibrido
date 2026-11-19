@@ -4,9 +4,23 @@ import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import static org.assertj.core.api.Assertions.*;
 
 class OrdenTests {
+    @Test void aceptaCorreoCompatibleConAnalytics() {
+        Orden orden = builder().correo("aleja@example.com").build();
+        assertThat(orden.getCorreo()).isEqualTo("aleja@example.com");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "aleja@localhost", "correo-invalido"})
+    void rechazaCorreoIncompatibleAntesDeConstruirOrden(String correo) {
+        assertThatThrownBy(() -> builder().correo(correo).build())
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Correo invalido");
+    }
+
     @ParameterizedTest
     @ValueSource(strings={"0","-1","-0.01"})
     void dineroRechazaMontosInvalidos(String value) {
