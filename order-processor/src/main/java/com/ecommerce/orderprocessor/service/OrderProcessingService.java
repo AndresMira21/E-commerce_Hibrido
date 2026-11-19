@@ -2,7 +2,7 @@ package com.ecommerce.orderprocessor.service;
 
 import com.ecommerce.orderprocessor.event.NewOrderEvent;
 import com.ecommerce.orderprocessor.command.ProcessOrderCommand;
-import com.ecommerce.orderprocessor.publisher.RabbitTaskPublisher;
+import com.ecommerce.orderprocessor.publisher.OrderTaskPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -11,9 +11,9 @@ import org.springframework.stereotype.Service;
 public class OrderProcessingService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderProcessingService.class);
-    private final RabbitTaskPublisher publisher;
+    private final OrderTaskPublisher publisher;
 
-    public OrderProcessingService(RabbitTaskPublisher publisher) {
+    public OrderProcessingService(OrderTaskPublisher publisher) {
         this.publisher = publisher;
     }
 

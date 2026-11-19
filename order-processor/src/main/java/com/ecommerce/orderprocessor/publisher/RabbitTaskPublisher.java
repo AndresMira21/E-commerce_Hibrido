@@ -6,7 +6,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
-public class RabbitTaskPublisher {
+public class RabbitTaskPublisher implements OrderTaskPublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
@@ -14,6 +14,7 @@ public class RabbitTaskPublisher {
         this.rabbitTemplate = rabbitTemplate;
     }
 
+    @Override
     public void publish(ProcessOrderCommand command) {
         rabbitTemplate.convertAndSend(RabbitMQConfig.ORDER_TASKS_EXCHANGE, "", command);
     }

@@ -2,7 +2,7 @@ package com.ecommerce.orderprocessor.service;
 
 import com.ecommerce.orderprocessor.command.ProcessOrderCommand;
 import com.ecommerce.orderprocessor.event.NewOrderEvent;
-import com.ecommerce.orderprocessor.publisher.RabbitTaskPublisher;
+import com.ecommerce.orderprocessor.publisher.OrderTaskPublisher;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,7 +18,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 class OrderProcessingServiceTests {
 
     @Mock
-    private RabbitTaskPublisher publisher;
+    private OrderTaskPublisher publisher;
 
     @Test
     void buildsAndPublishesCommandWithAllOrderData() {
