@@ -1,0 +1,12 @@
+# Defensa adicional para archivos locales de despliegue. El ejemplo sigue versionable.
+.env*
+!.env.aws.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.htpasswd
+backups/
+evidence/
+__pycache__/
+*.pyc
