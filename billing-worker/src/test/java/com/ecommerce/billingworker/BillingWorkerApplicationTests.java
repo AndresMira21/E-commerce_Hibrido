@@ -16,6 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
                 + "org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration"
 })
 class BillingWorkerApplicationTests {
+    @MockitoBean(name = "billingRabbitListenerContainerFactory")
+    private org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory;
     @MockitoBean
     private KafkaTemplate<String, PaymentEvent> kafkaTemplate;
 

@@ -1,5 +1,20 @@
 # Preparacion de la DLQ de inventario
 
+Procedimiento preferido para la entrega final: `scripts/configure-dlq.ps1` desde
+la raiz del repositorio. Inspecciona las tres colas, destinos y politicas antes de
+escribir; rechaza politicas ajenas coincidentes o argumentos incompatibles. Por
+defecto solo consulta; `-Apply` crea destinos faltantes y aplica/verifica politicas
+exactas. No consume ni purga mensajes. No se ejecuto contra RabbitMQ en esta auditoria.
+Los comandos manuales siguientes se conservan como referencia; no ejecutarlos si
+hay politicas coincidentes que deban preservarse o combinarse.
+
+```powershell
+$cred = Get-Credential
+./scripts/configure-dlq.ps1 -Credential $cred
+# Solo despues de revisar el resultado:
+./scripts/configure-dlq.ps1 -Credential $cred -Apply
+```
+
 Estas instrucciones NO se han ejecutado. Ejecutarlas mas adelante desde la raiz
 del repositorio, con RabbitMQ disponible. No consumen mensajes ni borran colas.
 No iniciar inventory-worker antes de verificar la topologia y la politica.

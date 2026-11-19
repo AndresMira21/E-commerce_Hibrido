@@ -23,6 +23,7 @@ public class NotificationService {
                 command.order_id(), command.item(), command.cantidad());
         var event = new NotificationEvent(command.order_id(), "EMAIL_SENT");
         publisher.publish(event);
+        log.info("order_id={} notification_events confirmado status=EMAIL_SENT (simulado)", command.order_id());
         return event;
     }
 }

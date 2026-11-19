@@ -13,7 +13,7 @@ public class NotificationQueueListener {
         this.notificationService = notificationService;
     }
 
-    @RabbitListener(queues = "${app.rabbitmq.queue}")
+    @RabbitListener(queues = "${app.rabbitmq.queue}", containerFactory = "notificationRabbitListenerContainerFactory")
     public void onMessage(OrderCommand command) {
         notificationService.notifyOrderReceived(command);
     }

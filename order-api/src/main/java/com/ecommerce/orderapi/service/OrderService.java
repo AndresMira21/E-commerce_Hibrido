@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class OrderService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderService.class);
     private final OrderEventPublisher publisher;
     private final AsyncTaskExecutor executor;
     private final OrdenPersistence persistence;
@@ -32,6 +33,7 @@ public class OrderService {
         // La llamada al bean separado retorna solo despues del commit.
         return CompletableFuture.supplyAsync(() -> persistence.guardarNueva(orden), executor)
                 .thenCompose(saved -> {
+                    log.info("order_id={} orden persistida antes de new_orders", id);
                     NewOrderEvent event = new NewOrderEvent(id, saved.getCliente(), saved.getCorreo(),
                             saved.detalle().producto(), saved.detalle().cantidad(), saved.dinero().valor());
                     CompletableFuture<?> envio;
@@ -40,11 +42,16 @@ public class OrderService {
                     return envio.handleAsync((confirmation, failure) -> {
                         // Otra transaccion audita el resultado, nunca compensa ni borra la orden.
                         persistence.registrarResultado(orden.identificador().valor(), failure == null);
+                        log.info("order_id={} resultado publicacion Kafka={}", id,
+                                failure == null ? "CONFIRMADA" : "INCIERTA");
                         if (failure != null) throw new OrderPublicationException(failure);
                         return new CreateOrderResponse(id, "ACCEPTED");
                     }, executor);
                 }).handle((result, failure) -> {
-                    if (failure != null) throw new OrderPublicationException(failure);
+                    if (failure != null) {
+                        log.error("order_id={} creacion no confirmada tipo={}", id, failure.getClass().getSimpleName());
+                        throw new OrderPublicationException(failure);
+                    }
                     return result;
                 });
     }

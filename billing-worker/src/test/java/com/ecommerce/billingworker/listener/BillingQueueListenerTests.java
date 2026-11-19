@@ -115,7 +115,8 @@ class BillingQueueListenerTests {
 
     private void assertRejected(String json) {
         assertThatThrownBy(() -> listener.onMessage(message(json)))
-                .isInstanceOf(JsonProcessingException.class);
+                .isInstanceOf(org.springframework.amqp.AmqpRejectAndDontRequeueException.class)
+                .hasCauseInstanceOf(JsonProcessingException.class);
         verifyNoInteractions(service);
         verifyNoInteractions(publisher);
     }

@@ -18,7 +18,7 @@ public class OrderEventListener {
         this.orderProcessingService = orderProcessingService;
     }
 
-    @KafkaListener(topics = "new_orders")
+    @KafkaListener(id = "orderProcessor", idIsGroup = false, topics = "new_orders")
     public void onMessage(String message) throws JsonProcessingException {
         NewOrderEvent order = objectMapper.readValue(message, NewOrderEvent.class);
         orderProcessingService.process(order);
