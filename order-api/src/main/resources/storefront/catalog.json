@@ -1,0 +1,142 @@
+[
+  {
+    "id": "nexo",
+    "category": "Audio",
+    "name": "Auriculares Nexo",
+    "price": 289900,
+    "description": "Almohadillas acolchadas y controles físicos para ajustar el volumen al instante."
+  },
+  {
+    "id": "trazo",
+    "category": "Periféricos",
+    "name": "Teclado mecánico Trazo 75",
+    "price": 319900,
+    "description": "Formato compacto de 75 % con teclas mecánicas y distribución en español."
+  },
+  {
+    "id": "vector",
+    "category": "Periféricos",
+    "name": "Mouse ergonómico Vector",
+    "price": 119900,
+    "description": "Diseño ergonómico, rueda de desplazamiento y conexión inalámbrica."
+  },
+  {
+    "id": "puente",
+    "category": "Accesorios",
+    "name": "Hub Puente USB-C",
+    "price": 179900,
+    "description": "Conecta pantalla, memoria y periféricos desde un solo puerto USB-C."
+  },
+  {
+    "id": "onda",
+    "category": "Audio",
+    "name": "Parlante Onda",
+    "price": 189900,
+    "description": "Parlante portátil con controles superiores para usar en casa o llevar contigo."
+  },
+  {
+    "id": "foco",
+    "category": "Pantallas y video",
+    "name": "Cámara web Foco Full HD",
+    "price": 209900,
+    "description": "Cámara para videollamadas con soporte ajustable para monitor."
+  },
+  {
+    "id": "bloque",
+    "category": "Accesorios",
+    "name": "SSD externo Bloque 1 TB",
+    "price": 389900,
+    "description": "Almacenamiento portátil para llevar proyectos y archivos de gran tamaño."
+  },
+  {
+    "id": "carga",
+    "category": "Accesorios",
+    "name": "Cargador USB-C 65 W",
+    "price": 149900,
+    "description": "Cargador compacto para dispositivos compatibles con USB-C."
+  },
+  {
+    "id": "plano",
+    "category": "Accesorios",
+    "name": "Base ajustable Plano",
+    "price": 139900,
+    "description": "Base de aluminio para elevar el portátil y liberar espacio en el escritorio."
+  },
+  {
+    "id": "bit",
+    "category": "Audio",
+    "name": "Audífonos gaming Bit",
+    "price": 229900,
+    "description": "Diadema acolchada y micrófono de brazo para jugar en equipo."
+  },
+  {
+    "id": "voz",
+    "category": "Audio",
+    "name": "Micrófono USB Voz",
+    "price": 249900,
+    "description": "Micrófono de escritorio con soporte corto para llamadas y grabaciones."
+  },
+  {
+    "id": "aire",
+    "category": "Periféricos",
+    "name": "Teclado inalámbrico Aire",
+    "price": 179900,
+    "description": "Teclas de perfil bajo y formato compacto para el escritorio."
+  },
+  {
+    "id": "pixel",
+    "category": "Periféricos",
+    "name": "Mouse gaming Pixel",
+    "price": 159900,
+    "description": "Mouse de agarre firme con botones laterales al alcance del pulgar."
+  },
+  {
+    "id": "superficie",
+    "category": "Periféricos",
+    "name": "Mousepad Superficie XL",
+    "price": 79900,
+    "description": "Superficie amplia de tela para teclado y mouse."
+  },
+  {
+    "id": "marco24",
+    "category": "Pantallas y video",
+    "name": "Monitor Marco 24 pulgadas",
+    "price": 549900,
+    "description": "Pantalla Full HD compacta para un escritorio de trabajo."
+  },
+  {
+    "id": "marco27",
+    "category": "Pantallas y video",
+    "name": "Monitor Marco 27 pulgadas",
+    "price": 899900,
+    "description": "Pantalla QHD amplia para distribuir ventanas y revisar detalles."
+  },
+  {
+    "id": "halo",
+    "category": "Pantallas y video",
+    "name": "Aro de luz Halo",
+    "price": 99900,
+    "description": "Iluminación frontal regulable sobre una base de escritorio."
+  },
+  {
+    "id": "nivel",
+    "category": "Accesorios",
+    "name": "Soporte para monitor Nivel",
+    "price": 129900,
+    "description": "Eleva la pantalla y deja espacio para guardar el teclado."
+  },
+  {
+    "id": "clave",
+    "category": "Accesorios",
+    "name": "Memoria USB Clave 64 GB",
+    "price": 44900,
+    "description": "Memoria compacta con carcasa metálica para transportar archivos."
+  },
+  {
+    "id": "flujo",
+    "category": "Accesorios",
+    "name": "Base refrigerante Flujo",
+    "price": 149900,
+    "description": "Base ventilada para portátil con rejilla y alimentación USB."
+  }
+]

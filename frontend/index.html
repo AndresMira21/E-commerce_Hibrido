@@ -1,0 +1,35 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="E-commerce, tienda de tecnología y accesorios.">
+  <title>E-commerce</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header id="header"></header>
+  <div class="wrap service-message" id="service-message" role="status" hidden></div>
+  <div id="cart-feedback" class="cart-feedback sr" role="status" aria-atomic="true"></div>
+  <main id="contenido" tabindex="-1"></main>
+  <dialog id="discount-policy" aria-labelledby="discount-policy-title">
+    <h2 id="discount-policy-title">Condiciones del 10 % de descuento</h2>
+    <ul>
+      <li>El descuento se aplica automáticamente a cada línea de $100.000 COP o más.</li>
+      <li>El subtotal de cada línea es el precio unitario multiplicado por la cantidad del mismo producto.</li>
+      <li>Los subtotales de productos distintos se evalúan por separado.</li>
+      <li>El descuento se activa sin cupón.</li>
+      <li>El servidor calcula y valida los importes finales.</li>
+    </ul>
+    <form method="dialog"><button class="button outline" autofocus>Cerrar</button></form>
+  </dialog>
+  <footer>
+    <div class="wrap footer">
+      <a class="logo" href="#inicio"><span class="brand-mark" aria-hidden="true"></span>E-commerce</a>
+      <span>Precios en pesos colombianos</span>
+    </div>
+  </footer>
+</body>
+</html>

@@ -14,7 +14,6 @@ import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFacto
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = {
-        // Valida el arranque sin brokers, DataSource ni infraestructura JPA.
         "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration,"
                 + "org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration,"
                 + "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,"

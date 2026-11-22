@@ -10,7 +10,6 @@ import static org.mockito.ArgumentMatchers.any;
 
 class KafkaFailureConfigTests {
     @Test void transientFailureInvokesRecoveryOnlyAfterThreeAttempts() {
-        // Arrange: no Kafka real; el tracker del handler cuenta los intentos.
         var recoverer=mock(org.springframework.kafka.listener.ConsumerRecordRecoverer.class);
         var handler=new KafkaFailureConfig().orderProcessorErrorHandler(recoverer);
         handler.setSeekAfterError(false);
@@ -18,7 +17,6 @@ class KafkaFailureConfigTests {
         var consumer=mock(org.apache.kafka.clients.consumer.Consumer.class);
         var container=mock(MessageListenerContainer.class);
         var failure=new IllegalStateException("RabbitMQ");
-        // Act / Assert
         handler.handleOne(failure,record,consumer,container);
         handler.handleOne(failure,record,consumer,container);
         verifyNoInteractions(recoverer);

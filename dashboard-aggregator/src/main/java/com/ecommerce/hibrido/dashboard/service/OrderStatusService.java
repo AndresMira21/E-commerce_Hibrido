@@ -33,6 +33,13 @@ public class OrderStatusService {
         return update(event, (current, status) -> new OrderStatus(current.order_id(), current.payment(), current.stock(), status));
     }
 
+    public synchronized void orderReceived(UUID id) {
+        if (statuses.containsKey(id)) return;
+        var pending = OrderStatus.pending(id);
+        statuses.put(id, pending);
+        messagingTemplate.convertAndSend("/topic/orders", pending);
+    }
+
     public synchronized List<OrderStatus> allStatuses() {
         return statuses.values().stream().sorted(Comparator.comparing(s -> s.order_id().toString())).toList();
     }

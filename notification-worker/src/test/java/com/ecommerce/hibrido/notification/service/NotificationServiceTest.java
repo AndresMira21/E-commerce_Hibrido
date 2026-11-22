@@ -20,14 +20,11 @@ class NotificationServiceTest {
 
     @Test
     void procesaPedidoYPublicaEventoEmailSent() {
-        // Arrange
         var orderId = UUID.randomUUID();
         var command = new OrderCommand(orderId, "PROCESS_ORDER", "Libro", 2, new BigDecimal("30000"));
 
-        // Act
         var result = service.notifyOrderReceived(command);
 
-        // Assert
         assertEquals(orderId, result.order_id());
         assertEquals("EMAIL_SENT", result.status());
         verify(publisher).publish(result);

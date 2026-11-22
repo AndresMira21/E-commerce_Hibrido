@@ -20,13 +20,10 @@ class OrderReceivedListenerTest {
 
     @Test
     void delegaElEventoRecibido() {
-        // Arrange
         var event = new OrderReceivedEvent(UUID.randomUUID(), "Miranda", "m@example.com", "Libro", 1, BigDecimal.TEN);
 
-        // Act
         listener.onOrderReceived(event);
 
-        // Assert
         verify(analytics).record(event);
     }
 }

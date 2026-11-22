@@ -24,7 +24,6 @@ class OrdenTests {
     @ParameterizedTest
     @ValueSource(strings={"0","-1","-0.01"})
     void dineroRechazaMontosInvalidos(String value) {
-        // Arrange / Act / Assert
         assertThatThrownBy(() -> new Dinero(new BigDecimal(value))).isInstanceOf(IllegalArgumentException.class);
     }
     @Test void valorObligatorio() {
@@ -45,9 +44,7 @@ class OrdenTests {
         assertThatThrownBy(() -> builder().correo("invalido").build()).isInstanceOf(IllegalArgumentException.class);
     }
     @Test void builderConservaValoresYAuditaCreacion() {
-        // Arrange
         Orden orden=builder().build();
-        // Act / Assert
         assertThat(orden.getEstado()).isEqualTo(EstadoOrden.PENDIENTE_PUBLICACION);
         assertThat(orden.detalle()).isEqualTo(new DetalleItem("Libro",1));
         assertThat(orden.dinero()).isEqualTo(new Dinero(new BigDecimal("15000")));

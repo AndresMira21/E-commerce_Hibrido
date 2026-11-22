@@ -3,7 +3,6 @@ package com.ecommerce.orderprocessor.validation;
 import java.math.BigDecimal;
 import java.util.regex.Pattern;
 
-/** Validaciones compartidas por el evento de entrada y el comando de salida. */
 public final class OrderDataValidator {
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 

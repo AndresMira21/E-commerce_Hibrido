@@ -41,11 +41,8 @@ class OrderPersistenceFlowTests {
         service=new OrderService(publisher,new TaskExecutorAdapter(new SyncTaskExecutor()),new OrdenPersistence(repository));
     }
     @Test void guardaAntesDePublicarYAuditaConfirmacion() {
-        // Arrange
         when(publisher.publish(any())).thenReturn(CompletableFuture.completedFuture(null));
-        // Act
         var result=service.createOrder(request).join();
-        // Assert
         var sequence=inOrder(repository,publisher);
         sequence.verify(repository).saveAndFlush(any());
         sequence.verify(publisher).publish(new NewOrderEvent(result.orderId(),"Alejandra","alejandra@example.com","Libro",1,new BigDecimal("15000")));
@@ -54,9 +51,7 @@ class OrderPersistenceFlowTests {
         assertThat(stored.getEstado()).isEqualTo(EstadoOrden.PUBLICADA);
     }
     @Test void errorBaseDeDatosNoPublica() {
-        // Arrange
         when(repository.saveAndFlush(any())).thenThrow(new DataAccessResourceFailureException("DB"));
-        // Act / Assert
         assertThatThrownBy(() -> service.createOrder(request).join()).hasCauseInstanceOf(OrderPublicationException.class);
         verifyNoInteractions(publisher);
     }
@@ -100,7 +95,6 @@ class OrderPersistenceFlowTests {
         sequence.verify(publisher).publish(any());
     }
     @Test void falloDeCommitNoInvocaKafkaAunqueSaveAndFlushTermine() {
-        // Arrange: el repositorio acepta el flush, pero la transaccion no logra confirmar.
         PlatformTransactionManager manager=mock(PlatformTransactionManager.class);
         TransactionStatus transaction=mock(TransactionStatus.class);
         when(manager.getTransaction(any())).thenReturn(transaction);
@@ -110,7 +104,6 @@ class OrderPersistenceFlowTests {
         OrderService transactionalService=new OrderService(publisher,
                 new TaskExecutorAdapter(new SyncTaskExecutor()),(OrdenPersistence)factory.getProxy());
 
-        // Act / Assert
         assertThatThrownBy(() -> transactionalService.createOrder(request).join())
                 .hasCauseInstanceOf(OrderPublicationException.class);
         verify(repository).saveAndFlush(any());

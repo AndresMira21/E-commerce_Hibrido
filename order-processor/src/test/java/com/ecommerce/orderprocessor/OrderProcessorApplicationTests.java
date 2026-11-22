@@ -10,7 +10,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = {
-        // Esta prueba valida el arranque sin crear infraestructura de mensajeria.
         "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration,"
                 + "org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration"
 })

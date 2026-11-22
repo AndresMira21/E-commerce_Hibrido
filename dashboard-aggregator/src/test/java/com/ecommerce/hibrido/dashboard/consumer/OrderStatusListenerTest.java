@@ -19,13 +19,10 @@ class OrderStatusListenerTest {
 
     @Test
     void distribuyeCadaTipoDeEventoAlCampoCorrespondiente() {
-        // Arrange
         var event = new StatusEvent(UUID.randomUUID(), "STOCK_RESERVED");
 
-        // Act
         listener.onInventoryEvent(event);
 
-        // Assert
         verify(service).updateStock(event);
     }
 }
