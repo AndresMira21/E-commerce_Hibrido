@@ -1,0 +1,18 @@
+# Local storefront overlay. Order API runs on Windows with HTTPS.
+services:
+  notification-worker:
+    image: e-commerce_hibrido-notification-worker:latest
+    ports: !override []
+  analytics-service:
+    image: e-commerce_hibrido-analytics-service:latest
+    ports: !override []
+  dashboard-aggregator:
+    image: ecommerce-storefront-dashboard:local
+    ports: !override ["127.0.0.1:8083:8083"]
+    environment:
+      ANALYTICS_BASE_URL: http://analytics-service:8082
+      OPERATIONS_USERNAME: ${OPERATIONS_USERNAME:-}
+      OPERATIONS_PASSWORD: ${OPERATIONS_PASSWORD:-}
+networks:
+  ecommerce:
+    name: ${COMPOSE_PROJECT_NAME:-ecommerce-storefront}-network

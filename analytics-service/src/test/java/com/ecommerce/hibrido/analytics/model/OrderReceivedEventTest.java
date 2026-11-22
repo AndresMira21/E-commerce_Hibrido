@@ -11,19 +11,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class OrderReceivedEventTest {
     @Test
     void aceptaEventoValido() {
-        // Arrange
         var id = UUID.randomUUID();
 
-        // Act / Assert
         assertDoesNotThrow(() -> validEvent(id));
     }
 
     @Test
     void rechazaCamposObligatoriosInvalidos() {
-        // Arrange
         var id = UUID.randomUUID();
 
-        // Act / Assert
         assertThrows(IllegalArgumentException.class, () -> new OrderReceivedEvent(null, "Cliente", "c@example.com", "Libro", 1, BigDecimal.ONE));
         assertThrows(IllegalArgumentException.class, () -> new OrderReceivedEvent(id, " ", "c@example.com", "Libro", 1, BigDecimal.ONE));
         assertThrows(IllegalArgumentException.class, () -> new OrderReceivedEvent(id, "Cliente", " ", "Libro", 1, BigDecimal.ONE));

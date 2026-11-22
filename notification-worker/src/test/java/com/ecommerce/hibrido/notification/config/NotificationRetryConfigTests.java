@@ -7,7 +7,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.*;
-import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.boot.autoconfigure.amqp.SimpleRabbitListenerContainerFactoryConfigurer;
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
@@ -20,11 +19,9 @@ class NotificationRetryConfigTests {
     private final Message message=new Message(new byte[0]);
     @ParameterizedTest @ValueSource(strings={"Kafka","PostgreSQL","OptimisticLock"})
     void transientErrorsStopAfterThreeAttempts(String failure) {
-        // Arrange
         MessageListener target=mock(MessageListener.class);
         doThrow(new IllegalStateException(failure)).when(target).onMessage(message);
         List<Long> pauses=new ArrayList<>();
-        // Act / Assert
         assertThatThrownBy(() -> advised(target,pauses).onMessage(message))
                 .hasCauseInstanceOf(AmqpRejectAndDontRequeueException.class);
         verify(target,times(3)).onMessage(message);

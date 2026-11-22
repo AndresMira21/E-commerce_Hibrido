@@ -22,13 +22,21 @@ class OrderStatusServiceTest {
     @Mock SimpMessagingTemplate messagingTemplate;
     @InjectMocks OrderStatusService service;
 
+    @Test void registraLaOrdenUnaSolaVezSinReiniciarResultados() {
+        var id = UUID.randomUUID();
+        service.orderReceived(id);
+        service.orderReceived(id);
+        verify(messagingTemplate).convertAndSend("/topic/orders", OrderStatus.pending(id));
+        service.updateStock(new StatusEvent(id, "STOCK_RESERVED"));
+        service.orderReceived(id);
+        assertEquals("STOCK_RESERVED", service.allStatuses().get(0).stock());
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings={"pse","pes","spe","sep","eps","esp"})
     void conservaCamposEnLasSeisPermutacionesConEstadosFallidos(String sequence) {
-        // Arrange
         UUID id=UUID.randomUUID();
         OrderStatus result=OrderStatus.pending(id);
-        // Act
         for(char field:sequence.toCharArray()) {
             result=switch(field) {
                 case 'p' -> service.updatePayment(new StatusEvent(id,"PAYMENT_FAILED"));
@@ -36,7 +44,6 @@ class OrderStatusServiceTest {
                 default -> service.updateEmail(new StatusEvent(id,"EMAIL_SENT"));
             };
         }
-        // Assert
         assertEquals(new OrderStatus(id,"PAYMENT_FAILED","OUT_OF_STOCK","EMAIL_SENT"),result);
         verify(messagingTemplate,org.mockito.Mockito.times(3)).convertAndSend(eq("/topic/orders"),org.mockito.ArgumentMatchers.any(Object.class));
     }
@@ -51,15 +58,12 @@ class OrderStatusServiceTest {
 
     @Test
     void agregaEventosEnCualquierOrdenYPublicaCadaActualizacion() {
-        // Arrange
         var orderId = UUID.randomUUID();
 
-        // Act
         var stock = service.updateStock(new StatusEvent(orderId, "STOCK_RESERVED"));
         var email = service.updateEmail(new StatusEvent(orderId, "EMAIL_SENT"));
         var payment = service.updatePayment(new StatusEvent(orderId, "PAYMENT_SUCCESS"));
 
-        // Assert
         assertEquals("PENDING", stock.payment());
         assertEquals("PENDING", stock.email());
         assertEquals("STOCK_RESERVED", email.stock());
@@ -74,15 +78,12 @@ class OrderStatusServiceTest {
 
     @Test
     void repiteEventoSinDuplicarOrdenNiPerderActualizacion() {
-        // Arrange
         var event = new StatusEvent(UUID.randomUUID(), "PAYMENT_FAILED");
 
-        // Act
         service.updatePayment(event);
         var repeated = service.updatePayment(event);
         var all = service.allStatuses();
 
-        // Assert
         assertEquals(1, all.size());
         assertEquals("PAYMENT_FAILED", repeated.payment());
     }

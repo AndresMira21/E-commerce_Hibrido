@@ -20,13 +20,10 @@ class NotificationQueueListenerTest {
 
     @Test
     void delegaElComandoAlServicio() {
-        // Arrange
         var command = new OrderCommand(UUID.randomUUID(), "PROCESS_ORDER", "Libro", 1, BigDecimal.TEN);
 
-        // Act
         listener.onMessage(command);
 
-        // Assert
         verify(service).notifyOrderReceived(command);
     }
 }

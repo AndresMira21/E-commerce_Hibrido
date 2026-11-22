@@ -50,7 +50,6 @@ class OrderContractValidationTests {
     @ParameterizedTest
     @MethodSource("invalidFields")
     void rejectsInvalidFieldsInBothCompactConstructors(String field, String value) throws Exception {
-        // Arrange
         ObjectNode json = (ObjectNode) mapper.readTree(VALID_JSON);
         json.set(field, mapper.readTree(value));
         String id = json.path("order_id").isNull() ? null : json.path("order_id").asText();
@@ -60,7 +59,6 @@ class OrderContractValidationTests {
         int cantidad = json.path("cantidad").asInt();
         BigDecimal monto = json.path("monto").isNull() ? null : json.path("monto").decimalValue();
 
-        // Act / Assert: la validacion ocurre tambien al construir fuera de Jackson.
         assertThatThrownBy(() -> new NewOrderEvent(id, cliente, correo, producto, cantidad, monto))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ProcessOrderCommand(id, cliente, correo, producto, cantidad, monto))
@@ -70,12 +68,10 @@ class OrderContractValidationTests {
     @ParameterizedTest
     @MethodSource("invalidFields")
     void invalidKafkaPayloadNeverReachesRabbitPublisher(String field, String value) throws Exception {
-        // Arrange: listener y servicio reales, publicador abstraido mediante DIP.
         ObjectNode json = (ObjectNode) mapper.readTree(VALID_JSON);
         json.set(field, mapper.readTree(value));
         OrderEventListener listener = new OrderEventListener(mapper, new OrderProcessingService(publisher));
 
-        // Act / Assert
         assertThatThrownBy(() -> listener.onMessage(json.toString()))
                 .isInstanceOf(JsonProcessingException.class).hasRootCauseInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(publisher);
@@ -83,14 +79,11 @@ class OrderContractValidationTests {
 
     @Test
     void validStringIdentifierAndExactJsonContractRemainCompatible() throws Exception {
-        // Arrange
         NewOrderEvent event = mapper.readValue(VALID_JSON, NewOrderEvent.class);
         OrderProcessingService service = new OrderProcessingService(publisher);
 
-        // Act
         service.process(event);
 
-        // Assert
         ProcessOrderCommand command = new ProcessOrderCommand("ORD-123", "Alejandra", "aleja@example.com",
                 "Libro", 1, new BigDecimal("15000.50"));
         verify(publisher).publish(command);

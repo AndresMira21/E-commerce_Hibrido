@@ -34,3 +34,11 @@ build/
 
 # Variables de entorno locales (no guardar credenciales en Git).
 .env
+.env.*
+!.env.example
+*.log
+*.tmp
+*.p12
+*.pfx
+*.jks
+*.key

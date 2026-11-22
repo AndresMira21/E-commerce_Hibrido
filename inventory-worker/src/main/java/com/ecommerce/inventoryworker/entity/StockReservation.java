@@ -53,7 +53,6 @@ public class StockReservation implements Persistable<UUID> {
     private Instant createdAt;
 
     protected StockReservation() {
-        // Requerido por JPA.
     }
 
     public StockReservation(UUID orderId, String productName, Integer quantity, ReservationStatus status) {

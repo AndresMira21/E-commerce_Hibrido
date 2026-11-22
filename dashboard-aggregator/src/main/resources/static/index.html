@@ -24,61 +24,173 @@
     .failed { background: #fde8e7; color: #b42318; } .neutral { background: #e8efff; color: #365bb5; }
     #empty { color: #748096; text-align: center; padding: 2rem; }
     @media (max-width: 650px) { header { padding: 1.25rem; } main { margin-top: 1rem; } }
+    :root { color-scheme: dark; color: #edf4ff; background: #080e19; }
+    header { background: #101e34; border-bottom: 1px solid #2c3e56; }
+    .table-wrap { background: #17263b; border-color: #2c3e56; box-shadow: none; }
+    th, td { border-color: #2c3e56; }
+    th, #connection, #empty { color: #b6c3d6; }
+    #connection.connected { color: #84efbd; }
+    #connection.disconnected { color: #ffc0cc; }
+    .pending { color: #c6d6ea; background: #273a55; }
+    .success { color: #a4f4cb; background: #174235; }
+    .failed { color: #ffc8d3; background: #542639; }
+    .neutral { color: #b8d6ff; background: #23426c; }
+    .metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; margin:0 0 1rem; }
+    .metrics div { background:#101e34; border:1px solid #2c3e56; padding:.85rem; border-radius:8px; }
+    .metrics dt { color:#b6c3d6; font-size:.85rem; } .metrics dd { margin:.25rem 0 0; font-weight:750; overflow-wrap:anywhere; }
+    label { display:grid; gap:.35rem; max-width:23rem; margin-bottom:.85rem; color:#b6c3d6; }
+    input { font:inherit; background:#101e34; color:#edf4ff; border:1px solid #526987; border-radius:6px; padding:.55rem; }
+    .alerts { margin:1rem 0; background:#17263b; border:1px solid #405575; border-radius:9px; padding:.8rem; }
+    .alerts summary { cursor:pointer; font-weight:750; }
+    .alerts ul { list-style:none; padding:0; margin:.6rem 0 0; max-height:23rem; overflow:auto; }
+    .alerts li { border-top:1px solid #405575; padding:.5rem 0; overflow-wrap:anywhere; }
+    .alerts small { display:block; color:#b6c3d6; margin-top:.15rem; }
+    @media (max-width:650px) {
+      .metrics { grid-template-columns:1fr; } table { min-width:0; }
+      thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+      table, tbody, tr, td { display:block; } td { padding:.45rem .7rem; overflow-wrap:anywhere; }
+      td[data-label]::before { content:attr(data-label); display:block; color:#b6c3d6; font-size:.77rem; margin-bottom:.25rem; }
+      tbody tr + tr { border-top:2px solid #526987; }
+    }
   </style>
 </head>
 <body>
-  <header><h1>E-commerce Híbrido</h1><p>Estado de procesamiento de pedidos en tiempo real</p></header>
+  <header><h1>Panel de operaciones</h1><p>E-commerce · Procesamiento de órdenes</p></header>
   <main>
+    <h2>Analytics Service</h2>
+    <dl class="metrics">
+      <div><dt>Órdenes recibidas</dt><dd id="total-orders">—</dd></div>
+      <div><dt>Monto original</dt><dd id="total-amount">—</dd></div>
+      <div><dt>Monto medio</dt><dd id="average-amount">—</dd></div>
+    </dl>
+    <p id="analytics-error" role="status" hidden>Analytics Service no está disponible.</p>
+    <details class="alerts"><summary>Alertas operativas <span id="ops-alert-count" class="badge neutral" aria-live="polite">0</span></summary>
+      <p id="ops-alert-empty">No hay alertas operativas observadas.</p><ul id="ops-alert-items"></ul></details>
     <div class="bar"><h2>Pedidos</h2><span id="connection" class="disconnected">Conectando…</span></div>
+    <label>Buscar orden técnica<input id="order-filter" type="search" placeholder="Identificador de orden"></label>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Pedido</th><th>Pago</th><th>Inventario</th><th>Correo</th></tr></thead>
+        <thead><tr><th>Pedido</th><th>Pago simulado</th><th>Inventario</th><th>Notificación</th></tr></thead>
         <tbody id="orders"><tr id="empty-row"><td id="empty" colspan="4">Aún no hay pedidos.</td></tr></tbody>
       </table>
     </div>
   </main>
-  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
   <script>
     const rows = document.getElementById('orders');
     const connection = document.getElementById('connection');
     const statuses = new Map();
+    const incidents = new Map();
+    const orderAlerts = new Map();
+    const filter = document.querySelector('#order-filter');
+    const cop = new Intl.NumberFormat('es-CO', {style: 'currency', currency: 'COP'});
+    async function analytics() {
+      try {
+        const response = await fetch('/analytics', {cache:'no-store'});
+        if (!response.ok) throw new Error('Analytics no disponible');
+        const data = await response.json();
+        document.getElementById('total-orders').textContent = data.total_orders;
+        document.getElementById('total-amount').textContent = cop.format(data.total_amount);
+        document.getElementById('average-amount').textContent = cop.format(data.average_amount);
+        document.getElementById('analytics-error').hidden = true;
+        incidents.delete('analytics');
+      } catch {
+        document.getElementById('analytics-error').hidden = false;
+        incidents.set('analytics', 'Analytics Service no respondió.');
+      }
+      renderAlerts();
+    }
+    function renderAlerts() {
+      const list = document.getElementById('ops-alert-items');
+      const items = [...incidents.values()].map(title => [title, 'Incidencia activa']);
+      for (const [id, notices] of [...orderAlerts].reverse()) {
+        for (const title of notices) items.push([title, 'Orden técnica ' + id]);
+      }
+      document.getElementById('ops-alert-count').textContent = items.length;
+      document.getElementById('ops-alert-empty').hidden = items.length > 0;
+      list.replaceChildren(...items.slice(0, 30).map(([title, category]) => {
+        const row = document.createElement('li');
+        const heading = document.createElement('strong');
+        const detail = document.createElement('small');
+        heading.textContent = title; detail.textContent = category;
+        row.append(heading, detail);
+        return row;
+      }));
+    }
     function badge(value) {
       const span = document.createElement('span');
       span.className = 'badge ' + (value === 'PENDING' ? 'pending' : value.endsWith('FAILED') || value === 'OUT_OF_STOCK' || value === 'STOCK_OUT_OF_STOCK' ? 'failed' : value === 'EMAIL_SENT' || value === 'STOCK_RESERVED' || value === 'PAYMENT_SUCCESS' ? 'success' : 'neutral');
-      span.textContent = value;
+      span.textContent = ({
+        EMAIL_SENT: "Notificación simulada",
+        PAYMENT_SUCCESS: "Pago simulado aprobado",
+        PAYMENT_FAILED: "Pago simulado rechazado",
+        STOCK_RESERVED: "Inventario reservado",
+        OUT_OF_STOCK: "Sin existencias",
+        STOCK_OUT_OF_STOCK: "Sin existencias",
+        PENDING: "Pendiente"
+      })[value] || value;
       return span;
     }
     function render(order) {
       statuses.set(order.order_id, order);
+      const notices = ['Orden recibida'];
+      if (order.payment === 'PAYMENT_FAILED') notices.push('Pago simulado rechazado');
+      if (['OUT_OF_STOCK','STOCK_OUT_OF_STOCK'].includes(order.stock)) notices.push('Inventario insuficiente');
+      if (notices.length > 1) notices.push('Procesamiento con incidencias');
+      orderAlerts.set(order.order_id, notices);
       document.getElementById('empty-row')?.remove();
       let row = document.getElementById('order-' + order.order_id);
       if (!row) { row = document.createElement('tr'); row.id = 'order-' + order.order_id; rows.prepend(row); }
       row.replaceChildren();
       const id = document.createElement('td'); id.textContent = order.order_id;
       row.append(id);
-      for (const key of ['payment', 'stock', 'email']) { const cell = document.createElement('td'); cell.append(badge(order[key] || 'PENDING')); row.append(cell); }
+      for (const [key, label] of [['payment','Pago simulado'], ['stock','Inventario'], ['email','Notificación']]) {
+        const cell = document.createElement('td'); cell.dataset.label = label;
+        cell.append(badge(order[key] || 'PENDING')); row.append(cell);
+      }
+      row.style.display = order.order_id.toLowerCase().includes(filter.value.trim().toLowerCase()) ? '' : 'none';
     }
-    const client = new StompJs.Client({
-      webSocketFactory: () => new SockJS('/ws'), reconnectDelay: 3000,
-      onConnect: () => {
-        connection.textContent = 'WebSocket conectado'; connection.className = 'connected';
-        const liveOrders = new Set();
-        client.subscribe('/topic/orders', message => {
-          const order = JSON.parse(message.body);
-          liveOrders.add(order.order_id);
-          render(order);
-        });
-        // Recupera el snapshot tambien al reconectar, despues de suscribirse.
-        fetch('/orders/status')
-          .then(response => response.json())
-          .then(items => items.filter(order => !liveOrders.has(order.order_id)).forEach(render))
-          .catch(() => { connection.textContent = 'Conectado; no se pudo recuperar el historial'; });
-      },
-      onWebSocketClose: () => { connection.textContent = 'WebSocket desconectado · reconectando'; connection.className = 'disconnected'; },
-      onStompError: () => { connection.textContent = 'Error de conexión'; connection.className = 'disconnected'; }
-    });
-    client.activate();
+    filter.addEventListener('input', () => statuses.forEach(render));
+    async function snapshot(liveOrders = new Set()) {
+      try {
+        const response = await fetch('/orders/status', {cache:'no-store'});
+        if (!response.ok) throw new Error('No se pudo consultar el estado');
+        (await response.json()).filter(order => !liveOrders.has(order.order_id)).forEach(render);
+        incidents.delete('snapshot');
+      } catch {
+        connection.textContent = 'No se pudo recuperar el estado de las órdenes';
+        incidents.set('snapshot', 'Falló la consulta del estado de órdenes.');
+      }
+      renderAlerts();
+    }
+    function connect() {
+      const url = new URL('/ws/operations', location.href);
+      url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const socket = new WebSocket(url, 'v12.stomp');
+      const liveOrders = new Set();
+      socket.onopen = () => socket.send('CONNECT\naccept-version:1.2\nheart-beat:0,0\n\n\u0000');
+      socket.onmessage = event => {
+        for (const raw of event.data.split('\u0000')) {
+          const frame = raw.replace(/^\n+/, '');
+          if (frame.startsWith('CONNECTED\n')) {
+            connection.textContent = 'WebSocket conectado'; connection.className = 'connected';
+            incidents.delete('socket'); renderAlerts();
+            socket.send('SUBSCRIBE\nid:orders\ndestination:/topic/orders\nack:auto\n\n\u0000');
+            snapshot(liveOrders);
+          } else if (frame.startsWith('MESSAGE\n')) {
+            const order = JSON.parse(frame.slice(frame.indexOf('\n\n') + 2));
+            liveOrders.add(order.order_id); render(order); analytics();
+          }
+        }
+      };
+      socket.onclose = () => {
+        connection.textContent = 'WebSocket desconectado · reconectando'; connection.className = 'disconnected';
+        incidents.set('socket', 'Se perdió la conexión WebSocket.'); renderAlerts();
+        setTimeout(connect, 3000);
+      };
+    }
+    analytics();
+    snapshot();
+    connect();
   </script>
 </body>
 </html>

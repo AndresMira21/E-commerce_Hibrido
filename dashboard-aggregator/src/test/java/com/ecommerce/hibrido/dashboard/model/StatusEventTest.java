@@ -10,10 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class StatusEventTest {
     @Test
     void aceptaEventoValidoYRechazaIdentificadorOEstadoAusente() {
-        // Arrange
         var id = UUID.randomUUID();
 
-        // Act / Assert
         assertDoesNotThrow(() -> new StatusEvent(id, "OUT_OF_STOCK"));
         assertThrows(IllegalArgumentException.class, () -> new StatusEvent(null, "OUT_OF_STOCK"));
         assertThrows(IllegalArgumentException.class, () -> new StatusEvent(id, " "));

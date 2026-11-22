@@ -92,10 +92,8 @@ class OrderControllerTests {
     @ParameterizedTest
     @ValueSource(strings = {"\"aleja@localhost\"", "\"correo-invalido\"", "\"\"", "null", "\" \""})
     void incompatibleEmailReturns400BeforePersistenceOrKafka(String correoJson) throws Exception {
-        // Arrange: todos los campos salvo correo son validos.
         String input = JSON.replace("\"ana@example.com\"", correoJson);
         for (String path : new String[]{"/order", "/api/orders"}) {
-            // Act / Assert: se rechaza por Bean Validation, antes del servicio.
             mvc.perform(post(path).contentType("application/json").content(input))
                     .andExpect(status().isBadRequest())
                     .andExpect(request().asyncNotStarted())

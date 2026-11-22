@@ -11,16 +11,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class OrderCommandTest {
     @Test
     void aceptaComandoValido() {
-        // Arrange / Act / Assert
         assertDoesNotThrow(() -> validCommand(UUID.randomUUID()));
     }
 
     @Test
     void rechazaCamposObligatoriosInvalidos() {
-        // Arrange
         var id = UUID.randomUUID();
 
-        // Act / Assert
         assertThrows(IllegalArgumentException.class, () -> new OrderCommand(null, "PROCESS_ORDER", "Libro", 1, BigDecimal.ONE));
         assertThrows(IllegalArgumentException.class, () -> new OrderCommand(id, " ", "Libro", 1, BigDecimal.ONE));
         assertThrows(IllegalArgumentException.class, () -> new OrderCommand(id, "UNKNOWN_ACTION", "Libro", 1, BigDecimal.ONE));

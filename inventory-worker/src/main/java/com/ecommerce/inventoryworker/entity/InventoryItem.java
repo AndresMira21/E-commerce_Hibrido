@@ -31,7 +31,6 @@ public class InventoryItem {
     private Long version;
 
     protected InventoryItem() {
-        // Requerido por JPA.
     }
 
     public InventoryItem(String productName, Integer availableQuantity) {
